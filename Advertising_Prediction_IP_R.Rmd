@@ -1,0 +1,386 @@
+---
+title: "Advert_Prediction"
+author: "Joy Muli"
+date: "11/4/2020"
+output: 
+  md_document:
+    variant: markdown_github
+---
+```{r}
+library(tidyverse)
+```
+
+# Reading the dataset
+```{r}
+adverts <- read.csv("http://bit.ly/IPAdvertisingData")
+```
+# Previwing the dataset
+```{r}
+head(adverts)
+```
+# Checking the bottom
+```{r}
+tail(adverts)
+```
+# Checking the number of rows and columns
+```{r}
+#The rows and columns in the data 
+cat("The dataset has ", dim(adverts)[1], "rows and ", dim(adverts)[2], " columns")
+```
+# Checking the structure of the dataset
+```{r}
+str(adverts)
+```
+
+## Cleaning the dataset
+# Making all the columns lower cased for uniformity and replacing white spaces
+```{r}
+names(adverts) <- str_replace_all(names(adverts), c(" " = "_"))
+names(adverts) <- tolower(names(adverts))
+```
+# Identifying numeric columns
+```{r}
+num_cols <- unlist(lapply(adverts, is.numeric))
+num_cols
+
+```
+# They are; daily time spent on site, age, area income, daily internet usage, male, click on ad
+ # Evaluating if there are any outliers in the numeric class
+#Subset numeric columns of data
+```{r}
+data_num <- adverts[ ,num_cols]                        
+```
+# Plotting boxplots
+```{r}
+boxplot(data_num)
+
+```
+# There were outliers only on the area_income. Now to check the values
+```{r}
+boxplot.stats(adverts$area.income)$out
+```
+# Dealing with the outliers 
+# Capping
+```{r}
+x <- adverts$area.income
+qnt <- quantile(x, probs=c(.25, .75), na.rm = T)
+caps <- quantile(x, probs=c(.05, .95), na.rm = T)
+H <- 1.5 * IQR(x, na.rm = T)
+adverts$area.income[adverts$area.income < (qnt[1] - H)] <- caps[1]
+adverts$area.income[adverts$area.income > (qnt[2] + H)] <- caps[2]
+```
+# Checking if there are any outliers left
+```{r}
+boxplot.stats(adverts$area.income)$out
+```
+# Checking for missing values
+```{r}
+colSums(is.na(adverts))
+
+```
+# There are no missing values
+# Checking for duplicated columns
+```{r}
+duplicate_rows <- adverts[duplicated(adverts),]
+duplicate_rows
+
+```
+# There are no duplicated columns
+
+
+# Exploratory Analysis
+
+## Measures of central tendency
+# Getting the mean for each numeric column
+```{r}
+colMeans(data_num)
+```
+# Getting the median for each numeric column
+```{r}
+apply(data_num,2,median)
+
+```
+# Getting the mode
+```{r}
+getmode <- function(v) {
+   uniqv <- unique(v)
+   uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+```
+```{r}
+getmode(adverts$age)
+getmode(adverts$daily.time.spent.on.site)
+getmode(adverts$area.income)
+getmode(adverts$daily.internet.usage)
+getmode(adverts$city)
+getmode(adverts$country)
+getmode(adverts$clicked.on.ad)
+getmode(adverts$timestamp)
+getmode(adverts$male)
+```
+
+## Measures of dispersion
+
+# Checking the minimum for every numeric column
+```{r}
+adverts.min <- apply(subset(data_num, select = c(daily.time.spent.on.site, age, area.income,	daily.internet.usage)),2,min, na.rm = TRUE)
+adverts.min
+```
+# Checking the maximum for every numeric column
+```{r}
+adverts.max <- apply(subset(data_num, select = c(daily.time.spent.on.site, age, area.income,	daily.internet.usage)),2,max, na.rm = TRUE)
+adverts.max
+
+```
+# Checking the range for every numeric column
+```{r}
+adverts.range <- apply(subset(data_num, select = c(daily.time.spent.on.site, age, area.income,	daily.internet.usage)),2,range, na.rm = TRUE)
+adverts.range
+```
+# Checking the quantiles for every numeric column
+```{r}
+adverts.qnt <- apply(subset(data_num, select = c(daily.time.spent.on.site, age, area.income,	daily.internet.usage)),2,quantile, na.rm = TRUE)
+adverts.qnt
+
+```
+# Checking the variation for every numeric column
+```{r}
+adverts.var <- apply(subset(data_num, select = c(daily.time.spent.on.site, age, area.income,	daily.internet.usage)),2,var, na.rm = TRUE)
+adverts.var
+```
+# Checking the standard deviation for every numeric column
+```{r}
+adverts.sd <- apply(subset(data_num, select = c(daily.time.spent.on.site, age, area.income,	daily.internet.usage)),2,sd, na.rm = TRUE)
+adverts.sd
+```
+
+## Graphical Univariate
+# Frequency distribution
+```{r}
+# Fetching the age column
+age <- adverts$age
+
+# Applying the table() function will compute the frequency distribution of the age variable
+age_frequency <- table(age)
+
+# Then applying the barplot function to produce its bar graph
+barplot(age_frequency)
+```
+# Histogram to show the distribution of time spent daily on site
+```{r}
+hist(adverts$daily.time.spent.on.site)
+```
+# Distribution of age
+```{r}
+hist(adverts$age)
+```
+# area_income distribution
+```{r}
+hist(adverts$area.income, col='cadetblue')
+```
+# Distribution of daily internet usage
+```{r}
+hist(adverts$daily.internet.usage, col='cadetblue')
+
+```
+# Distribution of gender
+```{r}
+
+ggplot(adverts,aes(x=toupper(male)))+geom_bar()+xlab(label = "Males and Females")+ylab(label = "Frequency")+theme_classic()
+
+```
+# Distribution of clicked on ad
+```{r}
+ggplot(adverts,aes(x=toupper(clicked.on.ad)))+geom_bar()+xlab(label = "No or Yes")+ylab(label = "Frequency")+theme_classic()
+
+```
+
+# Summary
+```{r}
+summary(adverts)
+
+```
+# Checking the number of people who clicked on ads and who did not
+```{r}
+table(adverts$clicked.on.ad)
+```
+# Checking the number of men and women
+```{r}
+table(adverts$male)
+```
+# From this we can see that the dataset was pretty much balanced
+
+
+## Bivariate Analysis
+
+# Correlation
+# Correlation matrix
+```{r}
+M<-cor(data_num)
+head(round(M,2))
+
+```
+# Covariance
+```{r}
+# Finding the covariance between daily_time_spent_on_site and age
+# Assigning a variable to each column
+site_time <- adverts$daily.time.spent.on.site
+age <- adverts$age
+cov(site_time, age)
+```
+
+```{r}
+# Covariance between daily_time_spent_on_site and income
+income <- adverts$area.income
+cov(site_time, income)
+```
+
+# Scatter plot
+```{r}
+# Scatter plot to compare income vs time spent on site
+plot(site_time, income, xlab="Time spent on site", ylab="Area income")
+```
+```{r}
+clicked <- adverts$clicked.on.ad
+# Scatter plot to compare income vs clicked on ad
+plot(clicked, income, xlab="Income", ylab="Clicked on ad")
+
+```
+```{r}
+# Age vs time spent on site
+plot(site_time, age, xlab="Time spent on site", ylab="Age")
+```
+
+## Implementing the solution
+```{r}
+#Create a dataframe that selects those that clicked on an ad
+yes <-  adverts %>% filter(adverts$clicked.on.ad  == 1); 
+```
+```{r}
+# A summary of those that clicked
+summary(yes)
+
+```
+
+```{r}
+#See the various distributions
+
+#Age distribution
+hist(yes$age, col='maroon')
+
+#See the area_income distribution 
+hist(yes$area.income, col='yellow')
+
+#See the daily_internet_usage distribution 
+hist(yes$daily.internet.usage, col='blueviolet')
+
+#daily_time_spent_on_site distribution 
+hist(yes$daily.time.spent.on.site, col='grey')
+```
+```{r}
+#Distribution of the countries 
+
+countries <- table(yes$country)
+countries
+```
+# Modeling
+```{r}
+names(data_num)
+```
+
+## SVM
+# Splitting the data into training set and testing set. 
+install.packages("numDeriv")
+
+```{r}
+library(numDeriv)
+library(caret)
+intrain <- createDataPartition(y = data_num$clicked.on.ad, p= 0.7, list = FALSE)
+training <- data_num[intrain,]
+testing <- data_num[-intrain,]
+```
+
+```{r}
+# We check the dimensions of out training dataframe and testing dataframe
+dim(training); 
+dim(testing)
+```
+# Factorizing the categorical variable
+```{r}
+training[["clicked.on.ad"]] = factor(training[["clicked.on.ad"]])
+```
+# Controlling all the computational overheads using the traincolntrol() method
+```{r}
+trctrl <- trainControl(method = "repeatedcv", number = 10, repeats = 3)
+
+```
+# Checking the result of the train model
+```{r}
+svm_Linear <- train(clicked.on.ad ~., data = training, method = "svmLinear",
+trControl=trctrl,
+preProcess = c("center", "scale"),
+tuneLength = 10)
+
+```
+# Making Predictions
+```{r}
+test_pred <- predict(svm_Linear, newdata = testing)
+test_pred
+```
+# Plotting a confusion matrix to check for accuracy
+```{r}
+confusionMatrix(table(test_pred, testing$clicked.on.ad))
+```
+##
+```{r}
+# Run algorithms using 10-fold cross validation
+control <- trainControl(method="cv", number=10)
+metric <- "Accuracy"
+```
+
+```{r}
+
+# a) linear algorithms
+set.seed(7)
+fit.lda <- train(clicked.on.ad~., data=training, method="lda", metric=metric, trControl=control)
+# b) nonlinear algorithms
+# CART
+set.seed(7)
+fit.cart <- train(clicked.on.ad~., data=training, method="rpart", metric=metric, trControl=control)
+# kNN
+set.seed(7)
+fit.knn <- train(clicked.on.ad~., data=training, method="knn", metric=metric, trControl=control)
+# c) advanced algorithms
+# SVM
+set.seed(7)
+fit.svm <- train(clicked.on.ad~., data=training, method="svmRadial", metric=metric, trControl=control)
+# Random Forest
+set.seed(7)
+fit.rf <- train(clicked.on.ad~., data=training, method="rf", metric=metric, trControl=control)
+
+```
+
+# 
+```{r}
+# summarize accuracy of models
+results <- resamples(list(lda=fit.lda, cart=fit.cart, knn=fit.knn, svm=fit.svm, rf=fit.rf))
+summary(results)
+```
+```{r}
+# compare accuracy of models
+dotplot(results)
+```
+
+## Summarizing the best model
+```{r}
+print(fit.svm)
+```
+
+# Making Predictions
+```{r}
+# estimate skill of SVM on the training dataset
+predictions <- predict(fit.svm, training)
+confusionMatrix(predictions, training$clicked.on.ad)
+```
+# Conclusions
+Support Vector Machine (SVM) is so far the  best model with an accuracy score of 96.86%. It made 678 correct predictions and 22 wrongs ones. The model can be further improved by tweaking some of the parameters. 
