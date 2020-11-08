@@ -1,0 +1,418 @@
+---
+title: "Untitled"
+author: "Joy Muli"
+date: "11/5/2020"
+output:
+   md_document:
+    variant: markdown_github
+---
+
+# Problem definition
+The brand’s Sales and Marketing team would like to understand their customer’s behavior from data that they have collected over the past year. More specifically, they would like to learn the characteristics of customer groups.
+
+# Defining the Metric for Success
+1. Perform clustering stating insights drawn from your analysis and visualizations.
+2. Upon implementation, provide comparisons between the approaches learned this week i.e. K-Means clustering vs Hierarchical clustering highlighting the strengths and limitations of each approach in the context of your analysis. 
+
+# Understanding the Context
+
+
+# Recording the experimental design
+1. Problem Definition
+2. Data Sourcing
+3. Check the Data
+4. Perform Data Cleaning
+5. Perform Exploratory Data Analysis  (Univariate, Bivariate & Multivariate)
+6. Implement the Solution
+7. Challenge the Solution
+8. Follow up Questions
+
+
+
+# Appropriateness of the Data
+- The dataset consists of 10 numerical and 8 categorical attributes. The 'Revenue' attribute can be used as the class label.
+- "Administrative", "Administrative Duration", "Informational", "Informational Duration", "Product Related" and "Product Related Duration" represents the number of different types of pages visited by the visitor in that session and total time spent in each of these page categories. The values of these features are derived from the URL information of the pages visited by the user and updated in real-time when a user takes an action, e.g. moving from one page to another. 
+- The "Bounce Rate", "Exit Rate" and "Page Value" features represent the metrics measured by "Google Analytics" for each page in the e-commerce site. 
+The value of the "Bounce Rate" feature for a web page refers to the percentage of visitors who enter the site from that page and then leave ("bounce") without triggering any other requests to the analytics server during that session. 
+- The value of the "Exit Rate" feature for a specific web page is calculated as for all pageviews to the page, the percentage that was the last in the session.
+- The "Page Value" feature represents the average value for a web page that a user visited before completing an e-commerce transaction. 
+- The "Special Day" feature indicates the closeness of the site visiting time to a specific special day (e.g. Mother’s Day, Valentine's Day) in which the sessions are more likely to be finalized with the transaction. The value of this attribute is determined by considering the dynamics of e-commerce such as the duration between the order date and delivery date. For example, for Valentina’s day, this value takes a nonzero value between February 2 and February 12, zero before and after this date unless it is close to another special day, and its maximum value of 1 on February 8. 
+- The dataset also includes the operating system, browser, region, traffic type, visitor type as returning or new visitor, a Boolean value indicating whether the date of the visit is weekend, and month of the year.
+
+
+
+# Importing the libraries
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(caret)
+library(caretEnsemble)
+library(mice)
+library(GGally)
+library(rpart)
+library(readr)
+library(dplyr)
+library(dendextend)
+library(factoextra)
+library(cluster)
+```
+
+# Data Sourcing
+```{r}
+df <- read.csv("http://bit.ly/EcommerceCustomersDataset")
+```
+
+# Checking the data
+```{r}
+# Previewing the head and the bottom
+head(df)
+tail(df)
+```
+```{r}
+#The rows and columns in the data 
+cat("The dataset has ", dim(df)[1], "rows and ", dim(df)[2], " columns")
+```
+```{r}
+# Checking the structure of the dataset
+str(df)
+```
+
+
+# Data Cleaning
+```{r}
+# Checking for missing values
+colSums(is.na(df))
+```
+
+
+```{r}
+# Dealing with missing values
+# Omitting the columns with null values since they're insignificant
+df <- na.omit(df)
+```
+```{r}
+# Checking if there are any more null values
+colSums(is.na(df))
+```
+```{r}
+# Checking for duplicated rows
+duplicate_rows <- df[duplicated(df),]
+duplicate_rows
+
+```
+```{r}
+# Dealing with the duplicated rows
+# Removing them
+df <- unique(df)
+```
+
+```{r}
+# Rechecking for duplicated rows
+duplicate_rows <- df[duplicated(df),]
+duplicate_rows
+```
+```{r}
+# Checking for outliers
+# First we get the numeric columns first
+num_cols <- unlist(lapply(df, is.numeric))
+num_df <- df[ ,num_cols]
+num_df
+```
+
+```{r}
+# Plotting the outliers
+boxplot(num_df)
+```
+
+```{r}
+# Dealing with the outliers through Capping
+x <- df$Administrative
+qnt <- quantile(x, probs=c(.25, .75), na.rm = T)
+caps <- quantile(x, probs=c(.05, .95), na.rm = T)
+H <- 1.5 * IQR(x, na.rm = T)
+df$Administrative[df$Administrative < (qnt[1] - H)] <- caps[1]
+df$Administrative[df$Administrative > (qnt[2] + H)] <- caps[2]
+```
+
+```{r}
+x <- df$ProductRelated
+qnt <- quantile(x, probs=c(.25, .75), na.rm = T)
+caps <- quantile(x, probs=c(.05, .95), na.rm = T)
+H <- 1.5 * IQR(x, na.rm = T)
+df$ProductRelated[df$ProductRelated < (qnt[1] - H)] <- caps[1]
+df$ProductRelated[df$ProductRelated > (qnt[2] + H)] <- caps[2]
+```
+
+```{r}
+x <- df$ExitRates
+qnt <- quantile(x, probs=c(.25, .75), na.rm = T)
+caps <- quantile(x, probs=c(.05, .95), na.rm = T)
+H <- 1.5 * IQR(x, na.rm = T)
+df$ExitRates[df$ExitRates < (qnt[1] - H)] <- caps[1]
+df$ExitRates[df$ExitRates > (qnt[2] + H)] <- caps[2]
+```
+
+```{r}
+x <- df$OperatingSystems
+qnt <- quantile(x, probs=c(.25, .75), na.rm = T)
+caps <- quantile(x, probs=c(.05, .95), na.rm = T)
+H <- 1.5 * IQR(x, na.rm = T)
+df$OperatingSystems[df$OperatingSystems < (qnt[1] - H)] <- caps[1]
+df$OperatingSystems[df$OperatingSystems > (qnt[2] + H)] <- caps[2]
+```
+
+```{r}
+# Checking if there are any outliers left
+boxplot.stats(df$OperatingSystems)$out
+```
+# There are no outliers left
+
+```{r}
+# Rechecking the rows and columns in the data left
+cat("The dataset has ", dim(df)[1], "rows and ", dim(df)[2], " columns")
+
+```
+```{r}
+# Recreating the numeric dataset without outliers
+num_cols <- unlist(lapply(df, is.numeric))
+num_df <- df[ ,num_cols]
+```
+
+
+## Exploratory Analysis
+# Computing some descriptive statistics
+```{r}
+desc_stats <- data.frame(
+  Min = apply(num_df, 2, min),    # minimum
+  Med = apply(num_df, 2, median), # median
+  Mean = apply(num_df, 2, mean),  # mean
+  SD = apply(num_df, 2, sd),      # Standard deviation
+  Max = apply(num_df, 2, max)     # Maximum
+)
+desc_stats <- round(desc_stats, 1)
+desc_stats
+```
+
+```{r}
+# Getting the region column
+region <- df$Region
+
+# Applying the table() function will compute the frequency distribution of the region variable
+region_frequency <- table(region)
+
+# Then applying the barplot function to produce its bar graph
+barplot(region_frequency)
+```
+
+```{r}
+# Getting the region column
+month <- df$Month
+
+# Applying the table() function will compute the frequency distribution of the region variable
+month_frequency <- table(month)
+
+# Then applying the barplot function to produce its bar graph
+barplot(month_frequency)
+```
+
+```{r}
+# Distribution of visitor type
+ggplot(df,aes(x=toupper(VisitorType)))+geom_bar()+xlab(label = "Type of Visitors ")+ylab(label = "Frequency")+theme_classic()
+```
+
+```{r}
+# Revenue distribution
+ggplot(df,aes(x=toupper(Revenue)))+geom_bar()+xlab(label = "Revenue")+ylab(label = "Frequency")+theme_classic()
+```
+```{r}
+# SpecialDay distribution
+ggplot(df,aes(x=toupper(SpecialDay)))+geom_bar()+xlab(label = "SpecialDay")+ylab(label = "Frequency")+theme_classic()
+```
+
+```{r}
+hist(df$BounceRates, col='cadetblue')
+hist(df$ExitRates, col='cadetblue')
+```
+
+# Histogram of Administrative
+```{r}
+hist(df$Administrative, col='pink')
+hist(df$Administrative_Duration, col='cadetblue')
+```
+# Histogram of information
+```{r}
+hist(df$Informational, col='maroon')
+hist(df$Informational_Duration, col='cadetblue')
+```
+# Histogram of product related 
+```{r}
+hist(df$ProductRelated, col='grey')
+hist(df$ProductRelated_Duration, col='cadetblue')
+```
+
+# Correlation matrix
+```{r}
+library(ggcorrplot)
+corr = round(cor(select_if(num_df, is.numeric)), 2)
+ggcorrplot(corr, hc.order = T, ggtheme = ggplot2::theme_gray,
+   colors = c("#6D9EC1", "white", "#E46726"), lab = T)
+```
+# Pairplot
+```{r}
+ggpairs(num_df[1:4])
+```
+
+```{r}
+ggpairs(num_df[5:8])
+```
+
+```{r}
+ggpairs(num_df[9:12])
+```
+
+```{r}
+ggpairs(num_df[13:14])
+```
+
+
+## Implementing the solution
+# Preprocessing the dataset
+```{r}
+df.new<- df[, c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 15, 17)]
+df.class<- df[, "Revenue"]
+head(df.new)
+```
+```{r}
+# Checking the class column
+head(df.class)
+
+```
+
+```{r}
+# Normalizing the dataset so that no particular attribute 
+# has more impact on clustering algorithm than others.
+normalize <- function(x){
+  return ((x-min(x)) / (max(x)-min(x)))
+}
+
+df.new$Administrative<- normalize(df.new$Administrative)
+df.new$Administrative_Duration<- normalize(df.new$Administrative_Duration)
+df.new$Informational<- normalize(df.new$Informational)
+df.new$Informational_Duration<- normalize(df.new$Informational_Duration)
+df.new$ProductRelated<- normalize(df.new$ProductRelated)
+df.new$ProductRelated_Duration<- normalize(df.new$ProductRelated_Duration)
+df.new$BounceRates<- normalize(df.new$BounceRates)
+df.new$ExitRates<- normalize(df.new$ExitRates)
+df.new$PageValues<- normalize(df.new$PageValues)
+df.new$SpecialDay<- normalize(df.new$SpecialDay)
+#df.new$Month<- normalize(df.new$Month)
+df.new$OperatingSystems<- normalize(df.new$OperatingSystems)
+df.new$Browser<- normalize(df.new$Browser)
+df.new$Region<- normalize(df.new$Region)
+df.new$TrafficType<- normalize(df.new$TrafficType)
+#df.new$VisitorType<- normalize(df.new$VisitorType)
+df.new$Weekend<- normalize(df.new$Weekend)
+```
+
+```{r}
+# Applying the K-means clustering algorithm with no. of centroids(k)=3
+result<- kmeans(df.new,3) 
+```
+
+```{r}
+# Previewing the no. of records in each cluster
+result$size 
+
+```
+
+```{r}
+# Getting the value of cluster center datapoint value(3 centers for k=3)
+result$centers
+```
+
+```{r}
+# Getting the cluster vector that shows the cluster where each record falls
+result$cluster
+```
+
+```{r}
+# Visualizing the  clustering results
+par(mfrow = c(1,2), mar = c(5,4,2,2))
+
+# Plotting to see how administrative and administrative duration has been distributed
+plot(df.new[,1:2], col = result$cluster)
+
+# Plotting to see how administrative and administrative duration data points have been distributed 
+# originally as per "class" attribute in dataset
+plot(df.new[,1:2], col = df.class)
+
+```
+
+```{r}
+# Plotting to see how information and information duration has been distributed
+plot(df.new[,3:4], col = result$cluster)
+
+# Plotting to see how information and information duration data points have been distributed 
+# originally as per "class" attribute in dataset
+plot(df.new[,3:4], col = df.class)
+
+```
+
+```{r}
+# Plotting to see how information and information duration has been distributed
+plot(df.new[,5:6], col = result$cluster)
+
+# Plotting to see how information and information duration data points have been distributed 
+# originally as per "class" attribute in dataset
+plot(df.new[,5:6], col = df.class)
+```
+
+```{r}
+table(result$cluster, df.class)
+
+```
+
+```{r}
+# Getting the accuracy of the model
+result$betweenss / result$totss
+
+```
+
+```{r}
+# Visualizing
+fviz_cluster(result, df.new)
+```
+
+# Hierarchical Clustering
+## Scaling the data to normalize it
+```{r}
+df <- scale(num_df)
+head(num_df)
+
+```
+
+# Computing the Euclidian distance between the observations
+```{r}
+d <- dist(num_df, method = "euclidean")
+
+```
+
+```{r}
+# We then hierarchical clustering using the Ward's method
+res.hc <- hclust(d, method = "ward.D2" )
+```
+
+```{r}
+# Lastly, we plot the obtained dendrogram
+plot(res.hc, cex = 0.6, hang = -1)
+
+```
+
+## Challenging the solution
+```{r}
+#Determining optimal number of Clusters (Cluster silhoutte Method )
+fviz_nbclust(df.new, FUN = kmeans, method = "silhouette")
+
+```
+# For Kmeans I used 3 as the number of K which is the optimal number of clusters 
+
